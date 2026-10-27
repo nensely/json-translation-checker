@@ -1,26 +1,48 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    const command = vscode.commands.registerCommand(
+        'jsonTranslationChecker.compare',
+        async () => {
+            const referenceFiles = await vscode.window.showOpenDialog({
+                title: 'Выберите эталонный файл переводов',
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                filters: {
+                    JSON: ['json']
+                }
+            });
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "json-translation-checker" is now active!');
+            if (!referenceFiles || referenceFiles.length === 0) {
+                return;
+            }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('json-translation-checker.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from json-translation-checker!');
-	});
+            const translationFiles = await vscode.window.showOpenDialog({
+                title: 'Выберите файл для проверки',
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                filters: {
+                    JSON: ['json']
+                }
+            });
 
-	context.subscriptions.push(disposable);
+            if (!translationFiles || translationFiles.length === 0) {
+                return;
+            }
+
+            const referenceFile = referenceFiles[0];
+            const translationFile = translationFiles[0];
+
+            await vscode.window.showInformationMessage(
+                `Эталон: ${referenceFile.fsPath}. ` +
+                `Проверяемый файл: ${translationFile.fsPath}.`
+            );
+        }
+    );
+
+    context.subscriptions.push(command);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
