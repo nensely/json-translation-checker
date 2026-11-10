@@ -11,14 +11,48 @@
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
-"contributes": {
-  "commands": [
-    {
-      "command": "jsonTranslationChecker.compare",
-      "title": "Сравнить переводы JSON"
+  "contributes": {
+    "commands": [
+      {
+        "command": "jsonTranslationChecker.compare",
+        "title": "Сравнить переводы JSON"
+      },
+      {
+        "command": "jsonTranslationChecker.openSettings",
+        "title": "Настройки проверки переводов JSON"
+      }
+    ],
+    "configuration": {
+      "title": "JSON Translation Checker",
+      "type": "object",
+      "properties": {
+        "jsonTranslationChecker.checkEmptyTranslations": {
+          "type": "boolean",
+          "default": true,
+          "order": 1,
+          "description": "Проверять пустые строки и строки, состоящие только из пробелов."
+        },
+        "jsonTranslationChecker.checkValueTypes": {
+          "type": "boolean",
+          "default": true,
+          "order": 2,
+          "description": "Проверять совпадение типов значений между эталоном и переводом."
+        },
+        "jsonTranslationChecker.checkExtraKeys": {
+          "type": "boolean",
+          "default": true,
+          "order": 3,
+          "description": "Находить лишние ключи, которых нет в эталонном файле."
+        },
+        "jsonTranslationChecker.promptToSaveReport": {
+          "type": "boolean",
+          "default": true,
+          "order": 4,
+          "description": "Предлагать сохранить Markdown-отчёт после проверки."
+        }
+      }
     }
-  ]
-},
+  },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",

@@ -1,14 +1,21 @@
 import * as vscode from 'vscode';
+
 import { compareKeys } from './keyComparison';
 import { validateTranslations } from './validation';
-import { calculateProgress, createMarkdownReport } from './report';
+
+import {
+    calculateProgress,
+    createMarkdownReport
+} from './report';
+
+import { getCheckerSettings } from './settings';
 
 export function activate(context: vscode.ExtensionContext) {
     const output = vscode.window.createOutputChannel(
         'JSON Translation Checker'
     );
 
-    const command = vscode.commands.registerCommand(
+    const compareCommand = vscode.commands.registerCommand(
         'jsonTranslationChecker.compare',
         async () => {
             const referenceFiles = await vscode.window.showOpenDialog({
@@ -43,18 +50,42 @@ export function activate(context: vscode.ExtensionContext) {
             const translationFile = translationFiles[0];
 
             try {
-                const referenceData = await readJsonFile(referenceFile);
-                const translationData = await readJsonFile(translationFile);
+                const settings = getCheckerSettings();
 
-                const comparison = compareKeys(
+                const referenceData = await readJsonFile(
+                    referenceFile
+                );
+
+                const translationData = await readJsonFile(
+                    translationFile
+                );
+
+                const rawComparison = compareKeys(
                     referenceData,
                     translationData
                 );
 
-                const validation = validateTranslations(
+                const rawValidation = validateTranslations(
                     referenceData,
                     translationData
                 );
+
+                const comparison = {
+                    ...rawComparison,
+                    extraKeys: settings.checkExtraKeys
+                        ? rawComparison.extraKeys
+                        : []
+                };
+
+                const validation = {
+                    emptyKeys: settings.checkEmptyTranslations
+                        ? rawValidation.emptyKeys
+                        : [],
+
+                    typeMismatches: settings.checkValueTypes
+                        ? rawValidation.typeMismatches
+                        : []
+                };
 
                 const summary = calculateProgress(
                     comparison,
@@ -95,88 +126,110 @@ export function activate(context: vscode.ExtensionContext) {
                 );
 
                 output.appendLine(
-                    `Лишних ключей: ${comparison.extraKeys.length}`
+                    'Лишних ключей: ' +
+                    formatCount(
+                        comparison.extraKeys.length,
+                        settings.checkExtraKeys
+                    )
                 );
 
                 output.appendLine(
-                    `Пустых переводов: ${validation.emptyKeys.length}`
+                    'Пустых переводов: ' +
+                    formatCount(
+                        validation.emptyKeys.length,
+                        settings.checkEmptyTranslations
+                    )
                 );
 
                 output.appendLine(
-                    `Несовпадений типов: ${validation.typeMismatches.length}`
+                    'Несовпадений типов: ' +
+                    formatCount(
+                        validation.typeMismatches.length,
+                        settings.checkValueTypes
+                    )
                 );
 
-                output.appendLine('');
-                output.appendLine('Отсутствующие ключи:');
+                appendSection(
+                    output,
+                    'Отсутствующие ключи',
+                    comparison.missingKeys,
+                    true
+                );
 
-                for (const key of comparison.missingKeys) {
-                    output.appendLine(`- ${key}`);
-                }
+                appendSection(
+                    output,
+                    'Лишние ключи',
+                    comparison.extraKeys,
+                    settings.checkExtraKeys
+                );
 
-                output.appendLine('');
-                output.appendLine('Лишние ключи:');
+                appendSection(
+                    output,
+                    'Пустые переводы',
+                    validation.emptyKeys,
+                    settings.checkEmptyTranslations
+                );
 
-                for (const key of comparison.extraKeys) {
-                    output.appendLine(`- ${key}`);
-                }
-
-                output.appendLine('');
-                output.appendLine('Пустые переводы:');
-
-                for (const key of validation.emptyKeys) {
-                    output.appendLine(`- ${key}`);
-                }
-
-                output.appendLine('');
-                output.appendLine('Несовпадения типов:');
-
-                for (const mismatch of validation.typeMismatches) {
-                    output.appendLine(
-                        `- ${mismatch.key}: ` +
+                const mismatches = validation.typeMismatches.map(
+                    mismatch =>
+                        `${mismatch.key}: ` +
                         `${mismatch.expected} -> ${mismatch.actual}`
-                    );
-                }
+                );
+
+                appendSection(
+                    output,
+                    'Несовпадения типов',
+                    mismatches,
+                    settings.checkValueTypes
+                );
 
                 output.show();
+
+                if (!settings.promptToSaveReport) {
+                    return;
+                }
 
                 const action = await vscode.window.showInformationMessage(
                     `Проверка завершена. Заполненность: ${summary.percentage.toFixed(1)}%`,
                     'Сохранить отчёт'
                 );
 
-                if (action === 'Сохранить отчёт') {
-                    const reportFile = await vscode.window.showSaveDialog({
-                        title: 'Сохранить Markdown-отчёт',
-                        defaultUri: vscode.Uri.joinPath(
-                            translationFile,
-                            '..',
-                            'translation-report.md'
-                        ),
-                        filters: {
-                            Markdown: ['md']
-                        }
-                    });
-
-                    if (!reportFile) {
-                        return;
-                    }
-
-                    const report = createMarkdownReport(
-                        referenceFile.fsPath,
-                        translationFile.fsPath,
-                        comparison,
-                        validation
-                    );
-
-                    await vscode.workspace.fs.writeFile(
-                        reportFile,
-                        Buffer.from(report, 'utf8')
-                    );
-
-                    await vscode.window.showInformationMessage(
-                        `Отчёт сохранён: ${reportFile.fsPath}`
-                    );
+                if (action !== 'Сохранить отчёт') {
+                    return;
                 }
+
+                const reportFile = await vscode.window.showSaveDialog({
+                    title: 'Сохранить Markdown-отчёт',
+                    defaultUri: vscode.Uri.joinPath(
+                        translationFile,
+                        '..',
+                        'translation-report.md'
+                    ),
+                    filters: {
+                        Markdown: ['md']
+                    }
+                });
+
+                if (!reportFile) {
+                    return;
+                }
+
+                const report = createMarkdownReport(
+                    referenceFile.fsPath,
+                    translationFile.fsPath,
+                    comparison,
+                    validation,
+                    settings
+                );
+
+                await vscode.workspace.fs.writeFile(
+                    reportFile,
+                    Buffer.from(report, 'utf8')
+                );
+
+                await vscode.window.showInformationMessage(
+                    `Отчёт сохранён: ${reportFile.fsPath}`
+                );
 
             } catch (error) {
                 const message = error instanceof Error
@@ -188,7 +241,52 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    context.subscriptions.push(command, output);
+    const settingsCommand = vscode.commands.registerCommand(
+        'jsonTranslationChecker.openSettings',
+        async () => {
+            await vscode.commands.executeCommand(
+                'workbench.action.openSettings',
+                'jsonTranslationChecker'
+            );
+        }
+    );
+
+    context.subscriptions.push(
+        compareCommand,
+        settingsCommand,
+        output
+    );
+}
+
+function formatCount(
+    count: number,
+    enabled: boolean
+): string {
+    return enabled ? String(count) : 'проверка отключена';
+}
+
+function appendSection(
+    output: vscode.OutputChannel,
+    title: string,
+    keys: string[],
+    enabled: boolean
+): void {
+    output.appendLine('');
+    output.appendLine(`${title}:`);
+
+    if (!enabled) {
+        output.appendLine('- Проверка отключена');
+        return;
+    }
+
+    if (keys.length === 0) {
+        output.appendLine('- Нет');
+        return;
+    }
+
+    for (const key of keys) {
+        output.appendLine(`- ${key}`);
+    }
 }
 
 async function readJsonFile(

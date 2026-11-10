@@ -1,6 +1,6 @@
-
 import type { ComparisonResult } from './keyComparison';
 import type { ValidationResult } from './validation';
+import type { CheckerSettings } from './settings';
 
 export interface ReportSummary {
     total: number;
@@ -48,16 +48,40 @@ function formatList(keys: string[]): string {
         return '- Нет';
     }
 
-    return keys.map(key => `- \`${key}\``).join('\n');
+    return keys.map(
+        key => `- \`${key}\``
+    ).join('\n');
+}
+
+function formatSection(
+    keys: string[],
+    enabled: boolean
+): string {
+    if (!enabled) {
+        return 'Проверка отключена';
+    }
+
+    return formatList(keys);
+}
+
+function formatCount(
+    count: number,
+    enabled: boolean
+): string {
+    return enabled ? String(count) : 'Не проверялось';
 }
 
 export function createMarkdownReport(
     referencePath: string,
     translationPath: string,
     comparison: ComparisonResult,
-    validation: ValidationResult
+    validation: ValidationResult,
+    settings: CheckerSettings
 ): string {
-    const summary = calculateProgress(comparison, validation);
+    const summary = calculateProgress(
+        comparison,
+        validation
+    );
 
     const mismatches = validation.typeMismatches.map(
         mismatch =>
@@ -81,9 +105,18 @@ export function createMarkdownReport(
         `| Корректных переводов | ${summary.valid} |`,
         `| Заполненность | ${summary.percentage.toFixed(1)}% |`,
         `| Отсутствующих ключей | ${comparison.missingKeys.length} |`,
-        `| Лишних ключей | ${comparison.extraKeys.length} |`,
-        `| Пустых переводов | ${validation.emptyKeys.length} |`,
-        `| Несовпадений типов | ${validation.typeMismatches.length} |`,
+        `| Лишних ключей | ${formatCount(
+            comparison.extraKeys.length,
+            settings.checkExtraKeys
+        )} |`,
+        `| Пустых переводов | ${formatCount(
+            validation.emptyKeys.length,
+            settings.checkEmptyTranslations
+        )} |`,
+        `| Несовпадений типов | ${formatCount(
+            validation.typeMismatches.length,
+            settings.checkValueTypes
+        )} |`,
         '',
         '## Отсутствующие ключи',
         '',
@@ -91,15 +124,24 @@ export function createMarkdownReport(
         '',
         '## Лишние ключи',
         '',
-        formatList(comparison.extraKeys),
+        formatSection(
+            comparison.extraKeys,
+            settings.checkExtraKeys
+        ),
         '',
         '## Пустые переводы',
         '',
-        formatList(validation.emptyKeys),
+        formatSection(
+            validation.emptyKeys,
+            settings.checkEmptyTranslations
+        ),
         '',
         '## Несовпадения типов',
         '',
-        formatList(mismatches),
+        formatSection(
+            mismatches,
+            settings.checkValueTypes
+        ),
         ''
     ].join('\n');
 }
