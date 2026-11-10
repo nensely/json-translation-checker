@@ -1,7 +1,7 @@
 {
   "name": "json-translation-checker",
-  "displayName": "json-translation-checker",
-  "description": "Compares translation keys across JSON files and identifies missing translations.",
+  "displayName": "JSON Translation Checker",
+  "description": "Compare JSON localization files, validate translations and visualize coverage in VS Code.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.140.0"
@@ -42,13 +42,13 @@
           "type": "boolean",
           "default": true,
           "order": 3,
-          "description": "Находить лишние ключи, которых нет в эталонном файле."
+          "description": "Находить ключи, которых нет в эталонном файле."
         },
         "jsonTranslationChecker.promptToSaveReport": {
           "type": "boolean",
           "default": true,
           "order": 4,
-          "description": "Предлагать сохранить Markdown-отчёт после проверки."
+          "description": "Предлагать сохранить Markdown-отчёт после проверки. Кнопка экспорта в панели доступна всегда."
         }
       }
     }
@@ -65,7 +65,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:unit": "node node_modules/esbuild/bin/esbuild src/test/unit.test.ts --bundle --platform=node --format=cjs --outfile=dist/unit-tests.cjs && node --test dist/unit-tests.cjs"
   },
   "devDependencies": {
     "@types/vscode": "^1.140.0",

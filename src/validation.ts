@@ -1,3 +1,4 @@
+import { appendKeyPath, isJsonObject } from './keyComparison';
 
 export interface TypeMismatch {
     key: string;
@@ -10,7 +11,7 @@ export interface ValidationResult {
     typeMismatches: TypeMismatch[];
 }
 
-function getValueType(value: unknown): string {
+export function getValueType(value: unknown): string {
     if (value === null) {
         return 'null';
     }
@@ -38,34 +39,26 @@ export function validateTranslations(
         }
 
         const translationValue = translationData[key];
-        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const fullKey = appendKeyPath(prefix, key);
+        const expected = getValueType(referenceValue);
+        const actual = getValueType(translationValue);
 
-        const referenceType = getValueType(referenceValue);
-        const translationType = getValueType(translationValue);
-
-        if (referenceType !== translationType) {
-            result.typeMismatches.push({
-                key: fullKey,
-                expected: referenceType,
-                actual: translationType
-            });
-
+        if (expected !== actual) {
+            result.typeMismatches.push({ key: fullKey, expected, actual });
             continue;
         }
 
-        if (referenceType === 'object') {
-            const nestedResult = validateTranslations(
-                referenceValue as Record<string, unknown>,
-                translationValue as Record<string, unknown>,
+        if (isJsonObject(referenceValue) && isJsonObject(translationValue)) {
+            const nested = validateTranslations(
+                referenceValue,
+                translationValue,
                 fullKey
             );
 
-            result.emptyKeys.push(...nestedResult.emptyKeys);
-            result.typeMismatches.push(...nestedResult.typeMismatches);
-        }
-
-        if (
-            referenceType === 'string' &&
+            result.emptyKeys.push(...nested.emptyKeys);
+            result.typeMismatches.push(...nested.typeMismatches);
+        } else if (
+            expected === 'string' &&
             (translationValue as string).trim().length === 0
         ) {
             result.emptyKeys.push(fullKey);

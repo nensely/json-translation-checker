@@ -1,9 +1,13 @@
-# Change Log
+# Changelog
 
-All notable changes to the "json-translation-checker" extension will be documented in this file.
+## 0.0.1 — Initial version
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
-
-- Initial release
+- Регистрация команды VS Code и чтение двух JSON-файлов.
+- Рекурсивное сравнение ключей, включая вложенные объекты.
+- Проверка пустых переводов и несовпадений типов.
+- Расчёт заполненности и экспорт Markdown-отчёта.
+- Настройки проверок через VS Code Settings.
+- Графическая Webview-панель с круговым индикатором и диаграммой ошибок.
+- Фильтры, поиск по проблемным ключам и сохранение отчёта из панели.
+- Автоматические тесты логики сравнения и генерации отчётов.
+- Документация на русском языке.

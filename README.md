@@ -1,71 +1,144 @@
-# json-translation-checker README
+# JSON Translation Checker
 
-This is the README for your extension "json-translation-checker". After writing up a brief description, we recommend including the following sections.
+Расширение VS Code для проверки JSON-файлов локализации. Сравнивает эталонный и переведённый файлы, проверяет наличие ключей и корректность значений, вычисляет заполненность, показывает результат в графической панели и формирует Markdown-отчёт.
 
-## Features
+## Возможности
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Рекурсивный обход вложенных JSON-объектов.
+- Поиск отсутствующих и лишних ключей.
+- Поиск пустых переводов (включая строки только из пробелов).
+- Проверка типов (`string`, `number`, `boolean`, `null`, `array`, `object`).
+- Процент корректно заполненных ключей.
+- Панель Webview с круговой диаграммой, распределением проблем, поиском и фильтрами.
+- Текстовый вывод в **Output → JSON Translation Checker**.
+- Экспорт результатов в Markdown с таблицей статистики.
+- Четыре переключателя в стандартных настройках VS Code.
+- Автоматические тесты логики сравнения.
 
-For example if there is an image subfolder under your extension project workspace:
+## Запуск из исходников (Windows)
 
-\!\[feature X\]\(images/feature-x.png\)
+Необходимы VS Code, Node.js и npm. Откройте **корневую папку проекта** в VS Code. В терминале PowerShell выполните:
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+```powershell
+npm.cmd install
+npm.cmd run compile
+```
 
-## Requirements
+Нажмите **F5**, чтобы открыть **Extension Development Host**. В новом окне нажмите **Ctrl+Shift+P** и запустите команду **«Сравнить переводы JSON»**.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+Сначала выберите эталонный файл, затем проверяемый. Откроется панель с результатами. Через кнопку **«Сохранить отчёт»** можно экспортировать результат в `translation-report.md`.
 
-## Extension Settings
+> В PowerShell команда `npm` может блокироваться политикой запуска скриптов. Используйте `npm.cmd`, как в примерах выше.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+## Пример
 
-For example:
+Эталонный `ru.json`:
 
-This extension contributes the following settings:
+```json
+{
+  "title": "Главная",
+  "menu": {
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "items": ["Первый", "Второй"],
+  "counter": 2
+}
+```
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+Проверяемый `en.json`:
 
-## Known Issues
+```json
+{
+  "title": "   ",
+  "menu": {
+    "save": 45
+  },
+  "items": "wrong",
+  "counter": 2,
+  "debug": "Debug"
+}
+```
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Результат: **5** эталонных ключей, **1** корректный перевод, **20,0%** заполненности. Есть отсутствующий `menu.cancel`, лишний `debug`, пустой `title` и два несовпадения типов (`menu.save`, `items`).
 
-## Release Notes
+## Графическая панель
 
-Users appreciate release notes as you update your extension.
+Вкладка **JSON Translation Checker** показывает:
 
-### 1.0.0
+1. Имена и пути сравниваемых файлов.
+2. Количество эталонных и корректных ключей, процент заполненности и число обнаруженных проблем.
+3. Круговой индикатор заполненности и диаграмму категорий ошибок.
+4. Список ошибок с фильтрами **Все / Отсутствуют / Лишние / Пустые / Типы** и поиском по пути ключа.
+5. Кнопки **«Настройки»** и **«Сохранить отчёт»**.
 
-Initial release of ...
+Панель создаётся один раз и обновляется при повторном сравнении. Цвета подстраиваются под тему VS Code. Скрипт панели работает с ограниченной CSP; содержимое ключей экранируется перед вставкой в HTML.
 
-### 1.0.1
+## Настройки
 
-Fixed issue #.
+В палитре команд выберите **«Настройки проверки переводов JSON»**. Параметры также доступны в **Settings** по запросу `jsonTranslationChecker`.
 
-### 1.1.0
+| Параметр | По умолчанию | Назначение |
+| --- | --- | --- |
+| `checkEmptyTranslations` | `true` | Учитывать пустые строки как ошибки |
+| `checkValueTypes` | `true` | Проверять типы значений |
+| `checkExtraKeys` | `true` | Показывать ключи, отсутствующие в эталоне |
+| `promptToSaveReport` | `true` | Показывать предложение экспорта после проверки |
 
-Added features X, Y, and Z.
+Изменения применяются **при следующем сравнении**, без перезапуска расширения. Кнопка сохранения в графической панели доступна независимо от последней настройки.
 
----
+## Как считается заполненность
 
-## Following extension guidelines
+Вычисляется по конечным ключам эталонного JSON (вложенные объекты рекурсивно раскрываются):
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+```text
+Заполненность = 100 × корректные ключи / все эталонные ключи
+```
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+Некорректными считаются отсутствующие ключи, пустые переводы (при включённой проверке) и несовпадения типов (при включённой проверке). Ошибка типа вложенного объекта делает его дочерние ключи некорректными. Если эталон пуст (`{}`), по соглашению показывается 100%.
 
-## Working with Markdown
+Лишние ключи не уменьшают заполненность. Если отключить проверки пустых значений или типов, процент может вырасти: это **изменение критерия**, а не улучшение качества перевода. Число проблем в категориях может перекрываться, поэтому его не следует вычитать из числа эталонных ключей.
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+## Ограничения
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+- Поддерживаются только JSON-файлы, у которых корневое значение — **объект**.
+- **Массивы** проверяются как единые значения по типу; их элементы не сравниваются.
+- **Пустые объекты** считаются конечными ключами. Пустой объект не считается пустым переводом.
+- Проверяется **структура** переводов, а не грамматика, смысл или качество текста.
+- Не выполняется автоматический перевод и не изменяются исходные JSON-файлы.
+- Названия ключей с точками или пробелами выводятся в нотации с квадратными скобками, например `["a.b"]`, чтобы избежать неоднозначности.
 
-## For more information
+## Автоматические тесты
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+После установки зависимостей:
 
-**Enjoy!**
+```powershell
+npm.cmd run check-types
+npm.cmd run lint
+npm.cmd run test:unit
+```
+
+Команда `test:unit` запускает локальные тесты без открытия VS Code. Обычная `npm.cmd test` — штатный интеграционный запуск `vscode-test`, который может скачивать тестовую сборку VS Code и требовать интернет.
+
+## Структура проекта
+
+```text
+src/
+  extension.ts       — регистрация команд, выбор файлов, запуск проверки
+  keyComparison.ts   — рекурсивное сравнение ключей
+  validation.ts      — поиск пустых переводов и несовпадений типов
+  settings.ts        — настройки пользователя
+  report.ts          — статистика и Markdown-отчёт
+  resultsPanel.ts    — графическая Webview-панель, фильтры и диаграммы
+  test/
+    unit.test.ts     — автоматические тесты логики
+```
+
+## Сборка и Git
+
+```powershell
+npm.cmd run compile
+git status
+```
+
+Папки `node_modules`, `dist` и временные тестовые файлы не требуется добавлять вручную в коммит. Для сборки и запуска используются существующие `esbuild.js`, `tsconfig.json` и `.vscode/` проекта.

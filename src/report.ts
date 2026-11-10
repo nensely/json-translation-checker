@@ -8,66 +8,55 @@ export interface ReportSummary {
     percentage: number;
 }
 
+function isSameOrChildPath(path: string, ancestor: string): boolean {
+    return path === ancestor ||
+        path.startsWith(`${ancestor}.`) ||
+        path.startsWith(`${ancestor}[`);
+}
+
 export function calculateProgress(
     comparison: ComparisonResult,
     validation: ValidationResult
 ): ReportSummary {
-    const invalidKeys = new Set<string>();
-
-    for (const key of comparison.missingKeys) {
-        invalidKeys.add(key);
-    }
-
-    for (const key of validation.emptyKeys) {
-        invalidKeys.add(key);
-    }
-
-    for (const mismatch of validation.typeMismatches) {
-        invalidKeys.add(mismatch.key);
-    }
+    const invalidPaths = [
+        ...comparison.missingKeys,
+        ...validation.emptyKeys,
+        ...validation.typeMismatches.map(item => item.key)
+    ];
 
     const total = comparison.referenceKeys.length;
-
     const valid = comparison.referenceKeys.filter(
-        key => !invalidKeys.has(key)
+        key => !invalidPaths.some(invalid => isSameOrChildPath(key, invalid))
     ).length;
-
-    const percentage = total === 0
-        ? 100
-        : (valid / total) * 100;
 
     return {
         total,
         valid,
-        percentage
+        percentage: total === 0 ? 100 : (valid / total) * 100
     };
 }
 
+function inlineCode(value: string): string {
+    const matches = value.match(/`+/g) ?? [];
+    const longest = Math.max(0, ...matches.map(match => match.length));
+    const ticks = '`'.repeat(longest + 1);
+    const text = value.replace(/\r?\n/g, ' ');
+    const padding = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
+
+    return `${ticks}${padding}${text}${padding}${ticks}`;
+}
+
 function formatList(keys: string[]): string {
-    if (keys.length === 0) {
-        return '- Нет';
-    }
-
-    return keys.map(
-        key => `- \`${key}\``
-    ).join('\n');
+    return keys.length > 0
+        ? keys.map(key => `- ${inlineCode(key)}`).join('\n')
+        : '- Нет';
 }
 
-function formatSection(
-    keys: string[],
-    enabled: boolean
-): string {
-    if (!enabled) {
-        return 'Проверка отключена';
-    }
-
-    return formatList(keys);
+function formatSection(keys: string[], enabled: boolean): string {
+    return enabled ? formatList(keys) : '- Проверка отключена';
 }
 
-function formatCount(
-    count: number,
-    enabled: boolean
-): string {
+function formatCount(count: number, enabled: boolean): string {
     return enabled ? String(count) : 'Не проверялось';
 }
 
@@ -78,14 +67,9 @@ export function createMarkdownReport(
     validation: ValidationResult,
     settings: CheckerSettings
 ): string {
-    const summary = calculateProgress(
-        comparison,
-        validation
-    );
-
+    const summary = calculateProgress(comparison, validation);
     const mismatches = validation.typeMismatches.map(
-        mismatch =>
-            `${mismatch.key}: ${mismatch.expected} -> ${mismatch.actual}`
+        mismatch => `${mismatch.key}: ${mismatch.expected} -> ${mismatch.actual}`
     );
 
     return [
@@ -93,9 +77,9 @@ export function createMarkdownReport(
         '',
         '## Проверяемые файлы',
         '',
-        `Эталон: \`${referencePath}\``,
+        `Эталон: ${inlineCode(referencePath)}`,
         '',
-        `Перевод: \`${translationPath}\``,
+        `Перевод: ${inlineCode(translationPath)}`,
         '',
         '## Статистика',
         '',
@@ -105,18 +89,9 @@ export function createMarkdownReport(
         `| Корректных переводов | ${summary.valid} |`,
         `| Заполненность | ${summary.percentage.toFixed(1)}% |`,
         `| Отсутствующих ключей | ${comparison.missingKeys.length} |`,
-        `| Лишних ключей | ${formatCount(
-            comparison.extraKeys.length,
-            settings.checkExtraKeys
-        )} |`,
-        `| Пустых переводов | ${formatCount(
-            validation.emptyKeys.length,
-            settings.checkEmptyTranslations
-        )} |`,
-        `| Несовпадений типов | ${formatCount(
-            validation.typeMismatches.length,
-            settings.checkValueTypes
-        )} |`,
+        `| Лишних ключей | ${formatCount(comparison.extraKeys.length, settings.checkExtraKeys)} |`,
+        `| Пустых переводов | ${formatCount(validation.emptyKeys.length, settings.checkEmptyTranslations)} |`,
+        `| Несовпадений типов | ${formatCount(validation.typeMismatches.length, settings.checkValueTypes)} |`,
         '',
         '## Отсутствующие ключи',
         '',
@@ -124,24 +99,15 @@ export function createMarkdownReport(
         '',
         '## Лишние ключи',
         '',
-        formatSection(
-            comparison.extraKeys,
-            settings.checkExtraKeys
-        ),
+        formatSection(comparison.extraKeys, settings.checkExtraKeys),
         '',
         '## Пустые переводы',
         '',
-        formatSection(
-            validation.emptyKeys,
-            settings.checkEmptyTranslations
-        ),
+        formatSection(validation.emptyKeys, settings.checkEmptyTranslations),
         '',
         '## Несовпадения типов',
         '',
-        formatSection(
-            mismatches,
-            settings.checkValueTypes
-        ),
+        formatSection(mismatches, settings.checkValueTypes),
         ''
     ].join('\n');
 }

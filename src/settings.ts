@@ -8,29 +8,12 @@ export interface CheckerSettings {
 }
 
 export function getCheckerSettings(): CheckerSettings {
-    const config = vscode.workspace.getConfiguration(
-        'jsonTranslationChecker'
-    );
+    const config = vscode.workspace.getConfiguration('jsonTranslationChecker');
 
     return {
-        checkEmptyTranslations: config.get<boolean>(
-            'checkEmptyTranslations',
-            true
-        ),
-
-        checkValueTypes: config.get<boolean>(
-            'checkValueTypes',
-            true
-        ),
-
-        checkExtraKeys: config.get<boolean>(
-            'checkExtraKeys',
-            true
-        ),
-
-        promptToSaveReport: config.get<boolean>(
-            'promptToSaveReport',
-            true
-        )
+        checkEmptyTranslations: config.get<boolean>('checkEmptyTranslations', true),
+        checkValueTypes: config.get<boolean>('checkValueTypes', true),
+        checkExtraKeys: config.get<boolean>('checkExtraKeys', true),
+        promptToSaveReport: config.get<boolean>('promptToSaveReport', true)
     };
 }
