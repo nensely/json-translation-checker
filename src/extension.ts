@@ -1,7 +1,7 @@
-
 import * as vscode from 'vscode';
 import { compareKeys } from './keyComparison';
 import { validateTranslations } from './validation';
+import { calculateProgress, createMarkdownReport } from './report';
 
 export function activate(context: vscode.ExtensionContext) {
     const output = vscode.window.createOutputChannel(
@@ -56,6 +56,11 @@ export function activate(context: vscode.ExtensionContext) {
                     translationData
                 );
 
+                const summary = calculateProgress(
+                    comparison,
+                    validation
+                );
+
                 output.clear();
 
                 output.appendLine('JSON Translation Checker');
@@ -72,12 +77,18 @@ export function activate(context: vscode.ExtensionContext) {
                 output.appendLine('');
 
                 output.appendLine(
-                    `Ключей в эталоне: ${comparison.referenceKeys.length}`
+                    `Всего ключей: ${summary.total}`
                 );
 
                 output.appendLine(
-                    `Ключей в переводе: ${comparison.translationKeys.length}`
+                    `Корректных переводов: ${summary.valid}`
                 );
+
+                output.appendLine(
+                    `Заполненность: ${summary.percentage.toFixed(1)}%`
+                );
+
+                output.appendLine('');
 
                 output.appendLine(
                     `Отсутствующих ключей: ${comparison.missingKeys.length}`
@@ -127,6 +138,45 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 output.show();
+
+                const action = await vscode.window.showInformationMessage(
+                    `Проверка завершена. Заполненность: ${summary.percentage.toFixed(1)}%`,
+                    'Сохранить отчёт'
+                );
+
+                if (action === 'Сохранить отчёт') {
+                    const reportFile = await vscode.window.showSaveDialog({
+                        title: 'Сохранить Markdown-отчёт',
+                        defaultUri: vscode.Uri.joinPath(
+                            translationFile,
+                            '..',
+                            'translation-report.md'
+                        ),
+                        filters: {
+                            Markdown: ['md']
+                        }
+                    });
+
+                    if (!reportFile) {
+                        return;
+                    }
+
+                    const report = createMarkdownReport(
+                        referenceFile.fsPath,
+                        translationFile.fsPath,
+                        comparison,
+                        validation
+                    );
+
+                    await vscode.workspace.fs.writeFile(
+                        reportFile,
+                        Buffer.from(report, 'utf8')
+                    );
+
+                    await vscode.window.showInformationMessage(
+                        `Отчёт сохранён: ${reportFile.fsPath}`
+                    );
+                }
 
             } catch (error) {
                 const message = error instanceof Error
