@@ -1,6 +1,7 @@
 
 import * as vscode from 'vscode';
 import { compareKeys } from './keyComparison';
+import { validateTranslations } from './validation';
 
 export function activate(context: vscode.ExtensionContext) {
     const output = vscode.window.createOutputChannel(
@@ -45,7 +46,12 @@ export function activate(context: vscode.ExtensionContext) {
                 const referenceData = await readJsonFile(referenceFile);
                 const translationData = await readJsonFile(translationFile);
 
-                const result = compareKeys(
+                const comparison = compareKeys(
+                    referenceData,
+                    translationData
+                );
+
+                const validation = validateTranslations(
                     referenceData,
                     translationData
                 );
@@ -66,33 +72,58 @@ export function activate(context: vscode.ExtensionContext) {
                 output.appendLine('');
 
                 output.appendLine(
-                    `Ключей в эталоне: ${result.referenceKeys.length}`
+                    `Ключей в эталоне: ${comparison.referenceKeys.length}`
                 );
 
                 output.appendLine(
-                    `Ключей в переводе: ${result.translationKeys.length}`
+                    `Ключей в переводе: ${comparison.translationKeys.length}`
                 );
 
                 output.appendLine(
-                    `Отсутствующих ключей: ${result.missingKeys.length}`
+                    `Отсутствующих ключей: ${comparison.missingKeys.length}`
                 );
 
                 output.appendLine(
-                    `Лишних ключей: ${result.extraKeys.length}`
+                    `Лишних ключей: ${comparison.extraKeys.length}`
+                );
+
+                output.appendLine(
+                    `Пустых переводов: ${validation.emptyKeys.length}`
+                );
+
+                output.appendLine(
+                    `Несовпадений типов: ${validation.typeMismatches.length}`
                 );
 
                 output.appendLine('');
                 output.appendLine('Отсутствующие ключи:');
 
-                for (const key of result.missingKeys) {
+                for (const key of comparison.missingKeys) {
                     output.appendLine(`- ${key}`);
                 }
 
                 output.appendLine('');
                 output.appendLine('Лишние ключи:');
 
-                for (const key of result.extraKeys) {
+                for (const key of comparison.extraKeys) {
                     output.appendLine(`- ${key}`);
+                }
+
+                output.appendLine('');
+                output.appendLine('Пустые переводы:');
+
+                for (const key of validation.emptyKeys) {
+                    output.appendLine(`- ${key}`);
+                }
+
+                output.appendLine('');
+                output.appendLine('Несовпадения типов:');
+
+                for (const mismatch of validation.typeMismatches) {
+                    output.appendLine(
+                        `- ${mismatch.key}: ` +
+                        `${mismatch.expected} -> ${mismatch.actual}`
+                    );
                 }
 
                 output.show();
