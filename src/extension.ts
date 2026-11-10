@@ -9,6 +9,7 @@ import {
 } from './report';
 
 import { getCheckerSettings } from './settings';
+import { showResultsPanel } from './resultsPanel';
 
 export function activate(context: vscode.ExtensionContext) {
     const output = vscode.window.createOutputChannel(
@@ -184,6 +185,14 @@ export function activate(context: vscode.ExtensionContext) {
                 );
 
                 output.show();
+
+                showResultsPanel(
+                    referenceFile,
+                    translationFile,
+                    comparison,
+                    validation,
+                    settings
+                );
 
                 if (!settings.promptToSaveReport) {
                     return;
